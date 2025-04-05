@@ -4,22 +4,67 @@
 #include <X11/extensions/shape.h>
 #include <unistd.h>
 #include <iostream>
+#include <string>
+#include <cctype>
 
 Display *display;
 Window root;
 Window overlay = 0;
 bool overlayVisible = false;
 
+std::string typed_chars = "";
+std::string highlighted_cell = "";
+
 void draw_grid(Window win, int width, int height) {
     GC gc = XCreateGC(display, win, 0, nullptr);
     XSetForeground(display, gc, WhitePixel(display, DefaultScreen(display)));
 
     int grid_size = 50; // pixels between lines
-    for (int x = 0; x < width; x += grid_size) {
-        XDrawLine(display, win, gc, x, 0, x, height);
-    }
+
+    int id_counter = 0;
     for (int y = 0; y < height; y += grid_size) {
-        XDrawLine(display, win, gc, 0, y, width, y);
+        for (int x = 0; x < width; x += grid_size) {
+            std::string cell_id;
+
+            if (id_counter < 260) { // 26 * 10
+                cell_id += 'a' + (id_counter / 10) % 26;
+                cell_id += '0' + (id_counter % 10);
+            } else {
+                cell_id += 'a' + ((id_counter - 260) / 26) % 26;
+                cell_id += 'a' + ((id_counter - 260) % 26);
+            }
+
+            // Highlight if matches
+            if (cell_id == highlighted_cell) {
+                XSetForeground(display, gc, WhitePixel(display, DefaultScreen(display)));
+                XFillRectangle(display, win, gc, x, y, grid_size, grid_size);
+                XSetForeground(display, gc, BlackPixel(display, DefaultScreen(display)));
+            } else {
+                XSetForeground(display, gc, WhitePixel(display, DefaultScreen(display)));
+            }
+
+            // Draw vertical lines
+            XDrawLine(display, win, gc, x, y, x, y + grid_size);
+            // Draw horizontal lines
+            XDrawLine(display, win, gc, x, y, x + grid_size, y);
+
+            // Draw text
+            int cx = x + grid_size / 2;
+            int cy = y + grid_size / 2;
+
+            int direction, ascent, descent;
+            XCharStruct overall;
+            XFontStruct *font = XQueryFont(display, XGContextFromGC(gc));
+            if (font) {
+                XTextExtents(font, cell_id.c_str(), 2, &direction, &ascent, &descent, &overall);
+                cx -= overall.width / 2;
+                cy += (ascent - descent) / 2;
+            }
+
+            XDrawString(display, win, gc, cx, cy, cell_id.c_str(), 2);
+
+            id_counter++;
+        }
     }
 
     XFreeGC(display, gc);
@@ -57,13 +102,22 @@ void create_overlay() {
     XMapRaised(display, overlay);
     XFlush(display);
 
+    // Grab keyboard to receive all key events
+    int grab_res = XGrabKeyboard(display, root, True, GrabModeAsync, GrabModeAsync, CurrentTime);
+    if (grab_res != GrabSuccess) {
+        std::cerr << "Warning: failed to grab keyboard\n";
+    }
+
     draw_grid(overlay, width, height);
 }
 
 void destroy_overlay() {
     if (overlay) {
+        XUngrabKeyboard(display, CurrentTime);
         XDestroyWindow(display, overlay);
         overlay = 0;
+        highlighted_cell = "";
+        typed_chars = "";
     }
 }
 
@@ -107,12 +161,32 @@ int main() {
 
         if (ev.type == KeyPress) {
             XKeyEvent xkey = ev.xkey;
+            KeySym keysym = XLookupKeysym(&xkey, 0);
+
             if ((xkey.state & modifiers_mask) == modifiers_mask && xkey.keycode == keycode) {
                 overlayVisible = !overlayVisible;
                 if (overlayVisible) {
                     create_overlay();
                 } else {
                     destroy_overlay();
+                }
+            } else if (overlayVisible) {
+                // accumulate typed characters when overlay is visible
+                char buf[32];
+                int len = XLookupString(&xkey, buf, sizeof(buf), &keysym, nullptr);
+                if (len == 1 && std::isalnum(buf[0])) {
+                    char c = std::tolower(buf[0]);
+                    typed_chars += c;
+                    if (typed_chars.length() > 2) {
+                        typed_chars = typed_chars.substr(typed_chars.length() - 2);
+                    }
+                    if (typed_chars.length() == 2) {
+                        highlighted_cell = typed_chars;
+                        int screen = DefaultScreen(display);
+                        int width = DisplayWidth(display, screen);
+                        int height = DisplayHeight(display, screen);
+                        draw_grid(overlay, width, height);
+                    }
                 }
             }
         } else if (ev.type == Expose && overlayVisible) {
