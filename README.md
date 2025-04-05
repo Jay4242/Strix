@@ -1,6 +1,6 @@
 # X11 Grid Overlay Tool
 
-This program creates a transparent overlay grid on your X11 desktop, which can be toggled on and off with a keyboard shortcut.
+This program creates a transparent overlay grid on your X11 desktop, which can be toggled on and off with a keyboard shortcut. It also allows you to highlight individual grid cells by typing their IDs.
 
 ## How it works
 
@@ -8,7 +8,9 @@ This program creates a transparent overlay grid on your X11 desktop, which can b
 - When you press `Ctrl + Shift + F9`, it toggles the visibility of a fullscreen transparent overlay window.
 - The overlay window is semi-transparent and click-through (input transparent), so it does not interfere with your normal desktop usage.
 - The overlay displays a grid with lines every 50 pixels, drawn in white.
-- The grid is redrawn whenever the overlay window receives an expose event (e.g., when uncovered).
+- Each grid cell is labeled with a unique 2-character ID (e.g., `a0`, `a1`, ..., `z9`, `aa`, `ab`, ...).
+- When the overlay is visible, you can type two alphanumeric characters to highlight the corresponding cell.
+- The grid is redrawn whenever the overlay window receives an expose event (e.g., when uncovered) or when a cell is highlighted.
 
 ## Usage
 
@@ -26,7 +28,9 @@ This program creates a transparent overlay grid on your X11 desktop, which can b
 
 3. Press `Ctrl + Shift + F9` to toggle the grid overlay on or off.
 
-4. To stop the program, terminate it from the terminal (e.g., with `Ctrl+C`).
+4. When the overlay is visible, type two alphanumeric characters to highlight a specific cell by its ID.
+
+5. To stop the program, terminate it from the terminal (e.g., with `Ctrl+C`).
 
 ## Dependencies
 
@@ -38,3 +42,5 @@ This program creates a transparent overlay grid on your X11 desktop, which can b
 - The overlay is created using the X Shape extension to make it input-transparent.
 - The opacity is set via the `_NET_WM_WINDOW_OPACITY` property to make the overlay semi-transparent.
 - The program currently uses a fixed grid size of 50 pixels.
+- Cell IDs are generated sequentially, starting with `a0` up to `z9`, then `aa`, `ab`, etc.
+- Highlighted cells are filled in white with black text for visibility.
