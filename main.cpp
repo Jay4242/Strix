@@ -15,6 +15,38 @@ bool overlayVisible = false;
 std::string typed_chars = "";
 std::string highlighted_cell = "";
 
+void move_pointer_to_cell(const std::string& cell_id, int width, int height) {
+    int grid_size = 50;
+    int id_counter = 0;
+    int found_x = -1, found_y = -1;
+
+    for (int y = 0; y < height; y += grid_size) {
+        for (int x = 0; x < width; x += grid_size) {
+            std::string cid;
+            if (id_counter < 260) { // 26 * 10
+                cid += 'a' + (id_counter / 10) % 26;
+                cid += '0' + (id_counter % 10);
+            } else {
+                cid += 'a' + ((id_counter - 260) / 26) % 26;
+                cid += 'a' + ((id_counter - 260) % 26);
+            }
+
+            if (cid == cell_id) {
+                found_x = x + grid_size / 2;
+                found_y = y + grid_size / 2;
+                break;
+            }
+            id_counter++;
+        }
+        if (found_x != -1) break;
+    }
+
+    if (found_x != -1 && found_y != -1) {
+        XWarpPointer(display, None, root, 0, 0, 0, 0, found_x, found_y);
+        XFlush(display);
+    }
+}
+
 void draw_grid(Window win, int width, int height) {
     GC gc = XCreateGC(display, win, 0, nullptr);
     XSetForeground(display, gc, WhitePixel(display, DefaultScreen(display)));
@@ -186,6 +218,7 @@ int main() {
                         int width = DisplayWidth(display, screen);
                         int height = DisplayHeight(display, screen);
                         draw_grid(overlay, width, height);
+                        move_pointer_to_cell(highlighted_cell, width, height);
                     }
                 }
             }
