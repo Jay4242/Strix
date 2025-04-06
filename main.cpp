@@ -23,6 +23,9 @@ bool toggle_in_progress = false;  // prevent repeated toggling while keys held
 KeyCode keycode_h;
 KeyCode keycode_t;
 
+unsigned long orange_pixel;  // pixel value for orange text
+unsigned long dark_pixel;    // pixel value for dark text
+
 void click_pointer();
 
 void destroy_overlay();
@@ -152,12 +155,10 @@ void draw_grid(Window win, int width, int height) {
             if (is_highlighted) {
                 XSetForeground(display, gc, WhitePixel(display, DefaultScreen(display)));
                 XFillRectangle(display, win, gc, x, y, grid_size, grid_size);
-                XSetForeground(display, gc, BlackPixel(display, DefaultScreen(display)));
-            } else {
-                XSetForeground(display, gc, WhitePixel(display, DefaultScreen(display)));
             }
 
             // Draw vertical lines
+            XSetForeground(display, gc, WhitePixel(display, DefaultScreen(display)));
             XDrawLine(display, win, gc, x, y, x, y + grid_size);
             // Draw horizontal lines
             XDrawLine(display, win, gc, x, y, x + grid_size, y);
@@ -175,6 +176,7 @@ void draw_grid(Window win, int width, int height) {
                 cy += (ascent - descent) / 2;
             }
 
+            XSetForeground(display, gc, orange_pixel);
             XDrawString(display, win, gc, cx, cy, cell_id.c_str(), 2);
 
             // Draw subgrid if this is the highlighted cell and either:
@@ -203,13 +205,10 @@ void draw_grid(Window win, int width, int height) {
                         if (sub_highlight) {
                             XSetForeground(display, gc, WhitePixel(display, DefaultScreen(display)));
                             XFillRectangle(display, win, gc, sub_x, sub_y, sub_size, sub_size);
-                            XSetForeground(display, gc, BlackPixel(display, DefaultScreen(display)));
-                        } else {
-                            // Draw transparent background (skip fill)
-                            XSetForeground(display, gc, BlackPixel(display, DefaultScreen(display)));
                         }
 
                         // Draw subgrid lines
+                        XSetForeground(display, gc, WhitePixel(display, DefaultScreen(display)));
                         XDrawLine(display, win, gc, sub_x, sub_y, sub_x + sub_size, sub_y);
                         XDrawLine(display, win, gc, sub_x, sub_y, sub_x, sub_y + sub_size);
 
@@ -223,6 +222,12 @@ void draw_grid(Window win, int width, int height) {
                             scy += (ascent - descent) / 2;
                         }
 
+                        // Use dark color for subgrid text inside highlighted cell
+                        if (is_highlighted) {
+                            XSetForeground(display, gc, dark_pixel);
+                        } else {
+                            XSetForeground(display, gc, orange_pixel);
+                        }
                         XDrawString(display, win, gc, scx, scy, scid.c_str(), 2);
                     }
                 }
@@ -319,6 +324,25 @@ int main() {
     }
 
     root = DefaultRootWindow(display);
+
+    // Allocate orange color
+    Colormap cmap = DefaultColormap(display, DefaultScreen(display));
+    XColor color;
+    if (!XParseColor(display, cmap, "#FFA500", &color) || !XAllocColor(display, cmap, &color)) {
+        std::cerr << "Failed to allocate orange color, using black instead\n";
+        orange_pixel = BlackPixel(display, DefaultScreen(display));
+    } else {
+        orange_pixel = color.pixel;
+    }
+
+    // Allocate dark color (dark gray)
+    XColor dark_color;
+    if (!XParseColor(display, cmap, "#333333", &dark_color) || !XAllocColor(display, cmap, &dark_color)) {
+        std::cerr << "Failed to allocate dark color, using black instead\n";
+        dark_pixel = BlackPixel(display, DefaultScreen(display));
+    } else {
+        dark_pixel = dark_color.pixel;
+    }
 
     int ctrl_mask = ControlMask;
 
