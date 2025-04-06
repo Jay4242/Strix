@@ -2,10 +2,12 @@
 #include <X11/Xutil.h>
 #include <X11/keysym.h>
 #include <X11/extensions/shape.h>
+#include <X11/extensions/XTest.h>
 #include <unistd.h>
 #include <iostream>
 #include <string>
 #include <cctype>
+#include <cstring>
 
 Display *display;
 Window root;
@@ -14,6 +16,10 @@ bool overlayVisible = false;
 
 std::string typed_chars = "";
 std::string highlighted_cell = "";
+
+void click_pointer();
+
+void destroy_overlay();
 
 void move_pointer_to_cell(const std::string& cell_id, int width, int height) {
     int grid_size = 50;
@@ -44,6 +50,7 @@ void move_pointer_to_cell(const std::string& cell_id, int width, int height) {
     if (found_x != -1 && found_y != -1) {
         XWarpPointer(display, None, root, 0, 0, 0, 0, found_x, found_y);
         XFlush(display);
+        // Do NOT destroy overlay or click here anymore
     }
 }
 
@@ -140,6 +147,15 @@ void create_overlay() {
     draw_grid(overlay, width, height);
 }
 
+void click_pointer() {
+    // Use XTest extension to generate a real click
+    XTestFakeButtonEvent(display, 1, True, CurrentTime);  // Button press
+    XFlush(display);
+    usleep(10000); // 10ms delay
+    XTestFakeButtonEvent(display, 1, False, CurrentTime); // Button release
+    XFlush(display);
+}
+
 void destroy_overlay() {
     if (overlay) {
         // Clear focus back to root
@@ -149,6 +165,8 @@ void destroy_overlay() {
         overlay = 0;
         highlighted_cell = "";
         typed_chars = "";
+
+        click_pointer();
     }
 }
 
