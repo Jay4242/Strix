@@ -8,6 +8,7 @@
 #include <string>
 #include <cctype>
 #include <cstring>
+#include <cassert>
 
 Display *display;
 Window root;
@@ -32,9 +33,9 @@ void destroy_overlay();
 
 void hide_overlay_without_click() {
     if (overlay) {
-        XSetInputFocus(display, root, RevertToParent, CurrentTime);
+        (void)XSetInputFocus(display, root, RevertToParent, CurrentTime);
 
-        XDestroyWindow(display, overlay);
+        (void)XDestroyWindow(display, overlay);
         overlay = 0;
         highlighted_cell = "";
         highlighted_subcell = "";
@@ -71,7 +72,8 @@ void move_pointer_to_cell(const std::string& cell_id, int width, int height) {
     }
 
     if (found_x != -1 && found_y != -1) {
-        XWarpPointer(display, None, root, 0, 0, 0, 0, found_x, found_y);
+        int status = XWarpPointer(display, None, root, 0, 0, 0, 0, found_x, found_y);
+        (void)status; // ignore return value, no error indication
         XFlush(display);
     }
 }
@@ -105,15 +107,14 @@ void move_pointer_to_subcell(const std::string& main_cell_id, const std::string&
 
     if (cell_x == -1 || cell_y == -1) return;
 
-    // Subgrid is 3x3 inside main cell
     int sub_size = grid_size / 3;
     int sub_x = -1, sub_y = -1;
 
     for (int sy = 0; sy < 3; ++sy) {
         for (int sx = 0; sx < 3; ++sx) {
             std::string scid;
-            scid += 'a' + sx; // 'a','b','c'
-            scid += '0' + sy; // '0','1','2'
+            scid += 'a' + sx;
+            scid += '0' + sy;
 
             if (scid == subcell_id) {
                 sub_x = cell_x + sx * sub_size + sub_size / 2;
@@ -125,23 +126,26 @@ void move_pointer_to_subcell(const std::string& main_cell_id, const std::string&
     }
 
     if (sub_x != -1 && sub_y != -1) {
-        XWarpPointer(display, None, root, 0, 0, 0, 0, sub_x, sub_y);
+        int status = XWarpPointer(display, None, root, 0, 0, 0, 0, sub_x, sub_y);
+        (void)status; // ignore return value
         XFlush(display);
     }
 }
 
 void draw_grid(Window win, int width, int height) {
     GC gc = XCreateGC(display, win, 0, nullptr);
+    assert(gc != nullptr);
+
     XSetForeground(display, gc, WhitePixel(display, DefaultScreen(display)));
 
-    int grid_size = 50; // pixels between lines
+    int grid_size = 50;
 
     int id_counter = 0;
     for (int y = 0; y < height; y += grid_size) {
         for (int x = 0; x < width; x += grid_size) {
             std::string cell_id;
 
-            if (id_counter < 260) { // 26 * 10
+            if (id_counter < 260) {
                 cell_id += 'a' + (id_counter / 10) % 26;
                 cell_id += '0' + (id_counter % 10);
             } else {
@@ -151,19 +155,15 @@ void draw_grid(Window win, int width, int height) {
 
             bool is_highlighted = (cell_id == highlighted_cell);
 
-            // Highlight main cell
             if (is_highlighted) {
                 XSetForeground(display, gc, WhitePixel(display, DefaultScreen(display)));
                 XFillRectangle(display, win, gc, x, y, grid_size, grid_size);
             }
 
-            // Draw vertical lines
             XSetForeground(display, gc, WhitePixel(display, DefaultScreen(display)));
             XDrawLine(display, win, gc, x, y, x, y + grid_size);
-            // Draw horizontal lines
             XDrawLine(display, win, gc, x, y, x + grid_size, y);
 
-            // Draw text
             int cx = x + grid_size / 2;
             int cy = y + grid_size / 2;
 
@@ -179,9 +179,6 @@ void draw_grid(Window win, int width, int height) {
             XSetForeground(display, gc, orange_pixel);
             XDrawString(display, win, gc, cx, cy, cell_id.c_str(), 2);
 
-            // Draw subgrid if this is the highlighted cell and either:
-            // - subcell mode active (highlighted_subcell != "")
-            // - or user has typed exactly 2 chars (main cell selected, waiting for subcell)
             bool show_subgrid = false;
             if (is_highlighted) {
                 if (highlighted_subcell != "" || (typed_chars.length() == 2 && highlighted_cell == typed_chars)) {
@@ -207,12 +204,10 @@ void draw_grid(Window win, int width, int height) {
                             XFillRectangle(display, win, gc, sub_x, sub_y, sub_size, sub_size);
                         }
 
-                        // Draw subgrid lines
                         XSetForeground(display, gc, WhitePixel(display, DefaultScreen(display)));
                         XDrawLine(display, win, gc, sub_x, sub_y, sub_x + sub_size, sub_y);
                         XDrawLine(display, win, gc, sub_x, sub_y, sub_x, sub_y + sub_size);
 
-                        // Draw subcell text
                         int scx = sub_x + sub_size / 2;
                         int scy = sub_y + sub_size / 2;
 
@@ -222,7 +217,6 @@ void draw_grid(Window win, int width, int height) {
                             scy += (ascent - descent) / 2;
                         }
 
-                        // Use dark color for subgrid text inside highlighted cell
                         if (is_highlighted) {
                             XSetForeground(display, gc, dark_pixel);
                         } else {
@@ -257,42 +251,42 @@ void create_overlay() {
                             DefaultVisual(display, screen),
                             CWOverrideRedirect | CWBackPixel | CWBorderPixel,
                             &attrs);
+    assert(overlay != 0);
 
-    // Make window transparent
-    unsigned long opacity = 0x40000000; // semi-transparent
+    unsigned long opacity = 0x40000000;
     Atom property = XInternAtom(display, "_NET_WM_WINDOW_OPACITY", False);
     Atom cardinal_atom = XInternAtom(display, "CARDINAL", False);
-    XChangeProperty(display, overlay, property, cardinal_atom, 32, PropModeReplace,
+    (void)XChangeProperty(display, overlay, property, cardinal_atom, 32, PropModeReplace,
                     (unsigned char *)&opacity, 1);
 
-    XSelectInput(display, overlay, ExposureMask | KeyPressMask);
-    XMapRaised(display, overlay);
+    (void)XSelectInput(display, overlay, ExposureMask | KeyPressMask);
+    (void)XMapRaised(display, overlay);
     XFlush(display);
 
-    XSetInputFocus(display, overlay, RevertToParent, CurrentTime);
+    (void)XSetInputFocus(display, overlay, RevertToParent, CurrentTime);
 
     draw_grid(overlay, width, height);
 }
 
 void click_pointer() {
-    XTestFakeButtonEvent(display, 1, True, CurrentTime);
+    (void)XTestFakeButtonEvent(display, 1, True, CurrentTime);
     XFlush(display);
     usleep(10000);
-    XTestFakeButtonEvent(display, 1, False, CurrentTime);
+    (void)XTestFakeButtonEvent(display, 1, False, CurrentTime);
     XFlush(display);
 }
 
 void destroy_overlay() {
     if (overlay) {
-        XSetInputFocus(display, root, RevertToParent, CurrentTime);
+        (void)XSetInputFocus(display, root, RevertToParent, CurrentTime);
 
-        XDestroyWindow(display, overlay);
+        (void)XDestroyWindow(display, overlay);
         overlay = 0;
         highlighted_cell = "";
         highlighted_subcell = "";
         typed_chars = "";
 
-        overlayVisible = false;  // fix: update toggle state after destroying overlay
+        overlayVisible = false;
 
         click_pointer();
     }
@@ -308,9 +302,7 @@ void grab_key_with_modifiers(Display *disp, Window win, int keycode, int base_mo
 
     for (unsigned int mod : modifiers) {
         int result = XGrabKey(disp, keycode, base_mods | mod, win, True, GrabModeAsync, GrabModeAsync);
-        if (result != 0) {
-            // success
-        } else {
+        if (result == 0) {
             std::cerr << "Warning: failed to grab key with modifiers mask " << (base_mods | mod) << "\n";
         }
     }
@@ -318,14 +310,10 @@ void grab_key_with_modifiers(Display *disp, Window win, int keycode, int base_mo
 
 int main() {
     display = XOpenDisplay(nullptr);
-    if (!display) {
-        std::cerr << "Cannot open display\n";
-        return 1;
-    }
+    assert(display != nullptr);
 
     root = DefaultRootWindow(display);
 
-    // Allocate orange color
     Colormap cmap = DefaultColormap(display, DefaultScreen(display));
     XColor color;
     if (!XParseColor(display, cmap, "#FFA500", &color) || !XAllocColor(display, cmap, &color)) {
@@ -335,7 +323,6 @@ int main() {
         orange_pixel = color.pixel;
     }
 
-    // Allocate dark color (dark gray)
     XColor dark_color;
     if (!XParseColor(display, cmap, "#333333", &dark_color) || !XAllocColor(display, cmap, &dark_color)) {
         std::cerr << "Failed to allocate dark color, using black instead\n";
@@ -352,7 +339,7 @@ int main() {
     grab_key_with_modifiers(display, root, keycode_h, ctrl_mask);
     grab_key_with_modifiers(display, root, keycode_t, ctrl_mask);
 
-    XSelectInput(display, root, KeyPressMask);
+    (void)XSelectInput(display, root, KeyPressMask);
 
     while (true) {
         XEvent ev;
@@ -389,13 +376,12 @@ int main() {
                     continue;
                 }
 
-                // New: handle Enter/Return key
                 if ((keysym == XK_Return || keysym == XK_KP_Enter) && typed_chars.length() >= 2) {
                     int screen = DefaultScreen(display);
                     int width = DisplayWidth(display, screen);
                     int height = DisplayHeight(display, screen);
 
-                    highlighted_subcell = "";  // clear subcell highlight
+                    highlighted_subcell = "";
                     draw_grid(overlay, width, height);
                     move_pointer_to_cell(highlighted_cell, width, height);
                     destroy_overlay();
@@ -425,7 +411,6 @@ int main() {
                         highlighted_subcell = subid;
                         draw_grid(overlay, width, height);
                         move_pointer_to_subcell(highlighted_cell, highlighted_subcell, width, height);
-                        // After subcell selection, reset state and hide overlay
                         destroy_overlay();
                     }
                 }
