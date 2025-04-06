@@ -4,8 +4,8 @@ This program creates a transparent overlay grid on your X11 desktop, which can b
 
 ## How it works
 
-- The program connects to the X11 display and grabs the `Ctrl + Shift + F9` key combination (including variations with NumLock and CapsLock).
-- When you press `Ctrl + Shift + F9`, it toggles the visibility of a fullscreen transparent overlay window.
+- The program connects to the X11 display and grabs the `Ctrl + h` and `Ctrl + t` key combinations (including variations with NumLock and CapsLock).
+- When you **hold Ctrl and press both `h` and `t` simultaneously**, it toggles the visibility of a fullscreen transparent overlay window.
 - The overlay window is semi-transparent and click-through (input transparent), so it does not interfere with your normal desktop usage.
 - The overlay displays a grid with lines every 50 pixels, drawn in white.
 - Each grid cell is labeled with a unique 2-character ID (e.g., `a0`, `a1`, ..., `z9`, `aa`, `ab`, ...).
@@ -40,7 +40,7 @@ This program creates a transparent overlay grid on your X11 desktop, which can b
    ./grid_overlay
    ```
 
-4. Press `Ctrl + Shift + F9` to toggle the grid overlay on or off.
+4. Press **Ctrl+h+t simultaneously** (hold Ctrl and press both `h` and `t` at the same time) to toggle the grid overlay on or off.
 
 5. When the overlay is visible:
    - Type **two alphanumeric characters** (e.g., `b3`) to select a main grid cell. The pointer will move and click in the center of that cell.
