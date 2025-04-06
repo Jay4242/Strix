@@ -376,14 +376,16 @@ int main() {
                     continue;
                 }
 
-                if ((keysym == XK_Return || keysym == XK_KP_Enter) && typed_chars.length() >= 2) {
+                if ((keysym == XK_Return || keysym == XK_KP_Enter)) {
                     int screen = DefaultScreen(display);
                     int width = DisplayWidth(display, screen);
                     int height = DisplayHeight(display, screen);
 
-                    highlighted_subcell = "";
-                    draw_grid(overlay, width, height);
-                    move_pointer_to_cell(highlighted_cell, width, height);
+                    if (typed_chars.length() >= 2) {
+                        highlighted_subcell = "";
+                        draw_grid(overlay, width, height);
+                        move_pointer_to_cell(highlighted_cell, width, height);
+                    }
                     destroy_overlay();
                     continue;
                 }
