@@ -24,8 +24,9 @@ bool toggle_in_progress = false;  // prevent repeated toggling while keys held
 KeyCode keycode_h;
 KeyCode keycode_t;
 
-unsigned long orange_pixel;  // pixel value for orange text
-unsigned long dark_pixel;    // pixel value for dark text
+unsigned long orange_pixel;       // pixel value for orange text (subcells)
+unsigned long bright_pixel;       // pixel value for bright main cell text
+unsigned long dark_pixel;         // pixel value for dark text
 
 void click_pointer();
 
@@ -176,7 +177,8 @@ void draw_grid(Window win, int width, int height) {
                 cy += (ascent - descent) / 2;
             }
 
-            XSetForeground(display, gc, orange_pixel);
+            // Use bright color for main cell text
+            XSetForeground(display, gc, bright_pixel);
             XDrawString(display, win, gc, cx, cy, cell_id.c_str(), 2);
 
             bool show_subgrid = false;
@@ -321,6 +323,14 @@ int main() {
         orange_pixel = BlackPixel(display, DefaultScreen(display));
     } else {
         orange_pixel = color.pixel;
+    }
+
+    XColor bright_color;
+    if (!XParseColor(display, cmap, "#FFFF00", &bright_color) || !XAllocColor(display, cmap, &bright_color)) {
+        std::cerr << "Failed to allocate bright yellow color, using white instead\n";
+        bright_pixel = WhitePixel(display, DefaultScreen(display));
+    } else {
+        bright_pixel = bright_color.pixel;
     }
 
     XColor dark_color;
