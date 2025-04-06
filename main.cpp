@@ -33,7 +33,7 @@ ClickMode current_click_mode = LEFT_CLICK;
 
 void click_pointer(ClickMode mode);
 
-void destroy_overlay();
+void destroy_overlay(bool should_click = false);
 
 void hide_overlay_without_click() {
     if (overlay) {
@@ -258,7 +258,7 @@ void create_overlay() {
                             &attrs);
     assert(overlay != 0);
 
-    unsigned long opacity = 0x40000000;
+    unsigned long opacity = 0x80000000;
     Atom property = XInternAtom(display, "_NET_WM_WINDOW_OPACITY", False);
     Atom cardinal_atom = XInternAtom(display, "CARDINAL", False);
     (void)XChangeProperty(display, overlay, property, cardinal_atom, 32, PropModeReplace,
@@ -294,7 +294,7 @@ void click_pointer(ClickMode mode) {
     }
 }
 
-void destroy_overlay() {
+void destroy_overlay(bool should_click) {
     if (overlay) {
         (void)XSetInputFocus(display, root, RevertToParent, CurrentTime);
 
@@ -306,7 +306,9 @@ void destroy_overlay() {
 
         overlayVisible = false;
 
-        click_pointer(current_click_mode);
+        if (should_click) {
+            click_pointer(current_click_mode);
+        }
     }
 }
 
@@ -429,7 +431,7 @@ int main() {
                         draw_grid(overlay, width, height);
                         move_pointer_to_cell(highlighted_cell, width, height);
                     }
-                    destroy_overlay();
+                    destroy_overlay(true);
                     continue;
                 }
 
@@ -456,7 +458,7 @@ int main() {
                         highlighted_subcell = subid;
                         draw_grid(overlay, width, height);
                         move_pointer_to_subcell(highlighted_cell, highlighted_subcell, width, height);
-                        destroy_overlay();
+                        destroy_overlay(true);
                     }
                 }
             }
