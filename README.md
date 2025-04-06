@@ -14,6 +14,7 @@ This program creates a transparent overlay grid on your X11 desktop, which can b
 - You can then type **two more characters** (total of 4 typed characters) to select a subcell within the highlighted main cell.
 - The mouse pointer will move to the center of the highlighted cell or subcell and automatically click.
 - After a subcell click, the overlay automatically hides.
+- **Alternatively, after selecting a main cell (typing 2 characters), you can press Enter to immediately click the center of that main cell and hide the overlay, without selecting a subcell.**
 - The grid is redrawn whenever the overlay window receives an expose event (e.g., when uncovered) or when a cell/subcell is highlighted.
 
 ## Usage
@@ -46,6 +47,8 @@ This program creates a transparent overlay grid on your X11 desktop, which can b
    - Type **two alphanumeric characters** (e.g., `b3`) to select a main grid cell. The pointer will move and click in the center of that cell.
    - After selecting a main cell, a 3x3 subgrid appears inside it.
    - Type **two more characters** (e.g., `a1`) to select a subcell within that main cell. The pointer will move and click in the center of the subcell, and the overlay will automatically hide.
+   - **Alternatively, after typing two characters for the main cell, press Enter (or Return) to immediately click the center of that main cell and hide the overlay, skipping subcell selection.**
+   - Press **Escape** to cancel and hide the overlay without clicking.
 
 6. To stop the program, terminate it from the terminal (e.g., with `Ctrl+C`).
 
@@ -64,5 +67,5 @@ This program creates a transparent overlay grid on your X11 desktop, which can b
 - Subcells within a main cell are labeled from `a0` (top-left) to `c2` (bottom-right).
 - Highlighted cells and subcells are filled in white with black text for visibility.
 - When a cell or subcell is highlighted, the mouse pointer is moved to its center automatically and a click is triggered.
-- After a subcell click, the overlay automatically hides and resets.
+- After a subcell click, or after pressing Enter on a main cell, the overlay automatically hides and resets.
 
