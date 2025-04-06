@@ -16,6 +16,7 @@ bool overlayVisible = false;
 
 std::string typed_chars = "";
 std::string highlighted_cell = "";
+std::string highlighted_subcell = "";
 
 void click_pointer();
 
@@ -50,7 +51,60 @@ void move_pointer_to_cell(const std::string& cell_id, int width, int height) {
     if (found_x != -1 && found_y != -1) {
         XWarpPointer(display, None, root, 0, 0, 0, 0, found_x, found_y);
         XFlush(display);
-        // Do NOT destroy overlay or click here anymore
+    }
+}
+
+void move_pointer_to_subcell(const std::string& main_cell_id, const std::string& subcell_id, int width, int height) {
+    int grid_size = 50;
+    int id_counter = 0;
+    int cell_x = -1, cell_y = -1;
+
+    // Find main cell position
+    for (int y = 0; y < height; y += grid_size) {
+        for (int x = 0; x < width; x += grid_size) {
+            std::string cid;
+            if (id_counter < 260) {
+                cid += 'a' + (id_counter / 10) % 26;
+                cid += '0' + (id_counter % 10);
+            } else {
+                cid += 'a' + ((id_counter - 260) / 26) % 26;
+                cid += 'a' + ((id_counter - 260) % 26);
+            }
+
+            if (cid == main_cell_id) {
+                cell_x = x;
+                cell_y = y;
+                break;
+            }
+            id_counter++;
+        }
+        if (cell_x != -1) break;
+    }
+
+    if (cell_x == -1 || cell_y == -1) return;
+
+    // Subgrid is 3x3 inside main cell
+    int sub_size = grid_size / 3;
+    int sub_x = -1, sub_y = -1;
+
+    for (int sy = 0; sy < 3; ++sy) {
+        for (int sx = 0; sx < 3; ++sx) {
+            std::string scid;
+            scid += 'a' + sx; // 'a','b','c'
+            scid += '0' + sy; // '0','1','2'
+
+            if (scid == subcell_id) {
+                sub_x = cell_x + sx * sub_size + sub_size / 2;
+                sub_y = cell_y + sy * sub_size + sub_size / 2;
+                break;
+            }
+        }
+        if (sub_x != -1) break;
+    }
+
+    if (sub_x != -1 && sub_y != -1) {
+        XWarpPointer(display, None, root, 0, 0, 0, 0, sub_x, sub_y);
+        XFlush(display);
     }
 }
 
@@ -73,8 +127,10 @@ void draw_grid(Window win, int width, int height) {
                 cell_id += 'a' + ((id_counter - 260) % 26);
             }
 
-            // Highlight if matches
-            if (cell_id == highlighted_cell) {
+            bool is_highlighted = (cell_id == highlighted_cell);
+
+            // Highlight main cell
+            if (is_highlighted) {
                 XSetForeground(display, gc, WhitePixel(display, DefaultScreen(display)));
                 XFillRectangle(display, win, gc, x, y, grid_size, grid_size);
                 XSetForeground(display, gc, BlackPixel(display, DefaultScreen(display)));
@@ -101,6 +157,57 @@ void draw_grid(Window win, int width, int height) {
             }
 
             XDrawString(display, win, gc, cx, cy, cell_id.c_str(), 2);
+
+            // Draw subgrid if this is the highlighted cell and either:
+            // - subcell mode active (highlighted_subcell != "")
+            // - or user has typed exactly 2 chars (main cell selected, waiting for subcell)
+            bool show_subgrid = false;
+            if (is_highlighted) {
+                if (highlighted_subcell != "" || (typed_chars.length() == 2 && highlighted_cell == typed_chars)) {
+                    show_subgrid = true;
+                }
+            }
+
+            if (show_subgrid) {
+                int sub_size = grid_size / 3;
+                for (int sy = 0; sy < 3; ++sy) {
+                    for (int sx = 0; sx < 3; ++sx) {
+                        int sub_x = x + sx * sub_size;
+                        int sub_y = y + sy * sub_size;
+
+                        std::string scid;
+                        scid += 'a' + sx;
+                        scid += '0' + sy;
+
+                        bool sub_highlight = (highlighted_subcell != "" && scid == highlighted_subcell);
+
+                        if (sub_highlight) {
+                            XSetForeground(display, gc, WhitePixel(display, DefaultScreen(display)));
+                            XFillRectangle(display, win, gc, sub_x, sub_y, sub_size, sub_size);
+                            XSetForeground(display, gc, BlackPixel(display, DefaultScreen(display)));
+                        } else {
+                            // Draw transparent background (skip fill)
+                            XSetForeground(display, gc, BlackPixel(display, DefaultScreen(display)));
+                        }
+
+                        // Draw subgrid lines
+                        XDrawLine(display, win, gc, sub_x, sub_y, sub_x + sub_size, sub_y);
+                        XDrawLine(display, win, gc, sub_x, sub_y, sub_x, sub_y + sub_size);
+
+                        // Draw subcell text
+                        int scx = sub_x + sub_size / 2;
+                        int scy = sub_y + sub_size / 2;
+
+                        if (font) {
+                            XTextExtents(font, scid.c_str(), 2, &direction, &ascent, &descent, &overall);
+                            scx -= overall.width / 2;
+                            scy += (ascent - descent) / 2;
+                        }
+
+                        XDrawString(display, win, gc, scx, scy, scid.c_str(), 2);
+                    }
+                }
+            }
 
             id_counter++;
         }
@@ -134,37 +241,34 @@ void create_overlay() {
     XChangeProperty(display, overlay, property, cardinal_atom, 32, PropModeReplace,
                     (unsigned char *)&opacity, 1);
 
-    // Do NOT make input transparent, so we can receive key events
-    // XShapeCombineRectangles(display, overlay, ShapeInput, 0, 0, nullptr, 0, ShapeSet, 0);
-
     XSelectInput(display, overlay, ExposureMask | KeyPressMask);
     XMapRaised(display, overlay);
     XFlush(display);
 
-    // Set input focus to overlay so it receives key events
     XSetInputFocus(display, overlay, RevertToParent, CurrentTime);
 
     draw_grid(overlay, width, height);
 }
 
 void click_pointer() {
-    // Use XTest extension to generate a real click
-    XTestFakeButtonEvent(display, 1, True, CurrentTime);  // Button press
+    XTestFakeButtonEvent(display, 1, True, CurrentTime);
     XFlush(display);
-    usleep(10000); // 10ms delay
-    XTestFakeButtonEvent(display, 1, False, CurrentTime); // Button release
+    usleep(10000);
+    XTestFakeButtonEvent(display, 1, False, CurrentTime);
     XFlush(display);
 }
 
 void destroy_overlay() {
     if (overlay) {
-        // Clear focus back to root
         XSetInputFocus(display, root, RevertToParent, CurrentTime);
 
         XDestroyWindow(display, overlay);
         overlay = 0;
         highlighted_cell = "";
+        highlighted_subcell = "";
         typed_chars = "";
+
+        overlayVisible = false;  // fix: update toggle state after destroying overlay
 
         click_pointer();
     }
@@ -173,9 +277,9 @@ void destroy_overlay() {
 void grab_key_with_modifiers(Display *disp, Window win, int keycode, int base_mods) {
     unsigned int modifiers[] = {
         0,
-        Mod2Mask,            // NumLock
-        LockMask,            // CapsLock
-        Mod2Mask | LockMask  // Both
+        Mod2Mask,
+        LockMask,
+        Mod2Mask | LockMask
     };
 
     for (unsigned int mod : modifiers) {
@@ -220,22 +324,31 @@ int main() {
                     destroy_overlay();
                 }
             } else if (overlayVisible && ev.xkey.window == overlay) {
-                // accumulate typed characters when overlay is visible and has focus
                 char buf[32];
                 int len = XLookupString(&xkey, buf, sizeof(buf), &keysym, nullptr);
                 if (len == 1 && std::isalnum(buf[0])) {
                     char c = std::tolower(buf[0]);
                     typed_chars += c;
-                    if (typed_chars.length() > 2) {
-                        typed_chars = typed_chars.substr(typed_chars.length() - 2);
+                    if (typed_chars.length() > 4) {
+                        typed_chars = typed_chars.substr(typed_chars.length() - 4);
                     }
+
+                    int screen = DefaultScreen(display);
+                    int width = DisplayWidth(display, screen);
+                    int height = DisplayHeight(display, screen);
+
                     if (typed_chars.length() == 2) {
                         highlighted_cell = typed_chars;
-                        int screen = DefaultScreen(display);
-                        int width = DisplayWidth(display, screen);
-                        int height = DisplayHeight(display, screen);
+                        highlighted_subcell = "";
                         draw_grid(overlay, width, height);
                         move_pointer_to_cell(highlighted_cell, width, height);
+                    } else if (typed_chars.length() == 4) {
+                        std::string subid = typed_chars.substr(2,2);
+                        highlighted_subcell = subid;
+                        draw_grid(overlay, width, height);
+                        move_pointer_to_subcell(highlighted_cell, highlighted_subcell, width, height);
+                        // After subcell selection, reset state and hide overlay
+                        destroy_overlay();
                     }
                 }
             }
