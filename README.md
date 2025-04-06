@@ -18,8 +18,8 @@ This program creates a transparent overlay grid on your X11 desktop, which can b
 - The overlay displays a grid with lines every 50 pixels, drawn in white.
 - Each grid cell is labeled with a unique 2-character ID (e.g., `a0`, `a1`, ..., `z9`, `aa`, `ab`, ...).
 - When the overlay is visible, you can type **two alphanumeric characters** to highlight the corresponding main cell.
-- When a main cell is highlighted, a 3x3 subgrid appears inside it, with subcells labeled `a0`, `b0`, `c0`, `a1`, ..., `c2`.
-- You can then type **two more characters** (total of 4 typed characters) to select a subcell within the highlighted main cell.
+- When a main cell is highlighted, a 3x3 subgrid appears inside it, with subcells labeled with the Dvorak homerow keys: `g`, `c`, `r`, `h`, `t`, `n`, `m`, `w`, `v`.
+- You can then type **one more character** (total of 3 typed characters) that corresponds to a Dvorak homerow key to select a subcell within the highlighted main cell.
 - The mouse pointer will move to the center of the highlighted cell or subcell and automatically click.
 - After a subcell click, the overlay automatically hides.
 - **Alternatively, after selecting a main cell (typing 2 characters), you can press Enter (or Return) to immediately click the center of that main cell and hide the overlay, without selecting a subcell.**
@@ -61,7 +61,7 @@ This program creates a transparent overlay grid on your X11 desktop, which can b
 5. When the overlay is visible:
    - Type **two alphanumeric characters** (e.g., `b3`) to select a main grid cell. The pointer will move and click in the center of that cell.
    - After selecting a main cell, a 3x3 subgrid appears inside it.
-   - Type **two more characters** (e.g., `a1`) to select a subcell within that main cell. The pointer will move and click in the center of the subcell, and the overlay will automatically hide.
+   - Type **one more character** (a Dvorak homerow key: `g`, `c`, `r`, `h`, `t`, `n`, `m`, `w`, or `v`) to select a subcell within that main cell. The pointer will move and click in the center of the subcell, and the overlay will automatically hide.
    - **Alternatively, after typing two characters for the main cell, press Enter (or Return) to immediately click the center of that main cell and hide the overlay, skipping subcell selection.**
    - Press **Escape** to cancel and hide the overlay without clicking.
    - **Change the click mode at any time while the overlay is visible by holding Ctrl and pressing:**
@@ -84,7 +84,7 @@ This program creates a transparent overlay grid on your X11 desktop, which can b
 - The opacity is set via the `_NET_WM_WINDOW_OPACITY` property to make the overlay semi-transparent.
 - The program currently uses a fixed grid size of 50 pixels.
 - Cell IDs are generated sequentially, starting with `a0` up to `z9`, then `aa`, `ab`, etc.
-- Subcells within a main cell are labeled from `a0` (top-left) to `c2` (bottom-right).
+- Subcells within a main cell are labeled with the Dvorak homerow keys: `g`, `c`, `r`, `h`, `t`, `n`, `m`, `w`, `v`.
 - Highlighted cells and subcells are filled in white with black or orange text for visibility.
 - When a cell or subcell is highlighted, the mouse pointer is moved to its center automatically and a click is triggered, using the currently selected click mode.
 - After a subcell click, or after pressing Enter on a main cell, the overlay automatically hides and resets.
