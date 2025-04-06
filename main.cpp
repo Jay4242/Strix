@@ -28,7 +28,10 @@ unsigned long orange_pixel;       // pixel value for orange text (subcells)
 unsigned long bright_pixel;       // pixel value for bright main cell text
 unsigned long dark_pixel;         // pixel value for dark text
 
-void click_pointer();
+enum ClickMode { LEFT_CLICK, RIGHT_CLICK, MIDDLE_CLICK, DOUBLE_CLICK };
+ClickMode current_click_mode = LEFT_CLICK;
+
+void click_pointer(ClickMode mode);
 
 void destroy_overlay();
 
@@ -270,12 +273,25 @@ void create_overlay() {
     draw_grid(overlay, width, height);
 }
 
-void click_pointer() {
-    (void)XTestFakeButtonEvent(display, 1, True, CurrentTime);
-    XFlush(display);
-    usleep(10000);
-    (void)XTestFakeButtonEvent(display, 1, False, CurrentTime);
-    XFlush(display);
+void click_pointer(ClickMode mode) {
+    int button = 1;  // default left
+    int click_count = 1;
+
+    switch (mode) {
+        case LEFT_CLICK: button = 1; click_count = 1; break;
+        case RIGHT_CLICK: button = 3; click_count = 1; break;
+        case MIDDLE_CLICK: button = 2; click_count = 1; break;
+        case DOUBLE_CLICK: button = 1; click_count = 2; break;
+    }
+
+    for (int i = 0; i < click_count; ++i) {
+        XTestFakeButtonEvent(display, button, True, CurrentTime);
+        XFlush(display);
+        usleep(10000);
+        XTestFakeButtonEvent(display, button, False, CurrentTime);
+        XFlush(display);
+        if (click_count == 2) usleep(100000);  // small delay between double clicks
+    }
 }
 
 void destroy_overlay() {
@@ -290,7 +306,7 @@ void destroy_overlay() {
 
         overlayVisible = false;
 
-        click_pointer();
+        click_pointer(current_click_mode);
     }
 }
 
@@ -381,6 +397,23 @@ int main() {
             }
 
             if (overlayVisible && ev.xkey.window == overlay) {
+                // Change click mode with Ctrl+number
+                if (ctrl_held) {
+                    if (keysym == XK_1) {
+                        current_click_mode = LEFT_CLICK;
+                        continue;
+                    } else if (keysym == XK_2) {
+                        current_click_mode = RIGHT_CLICK;
+                        continue;
+                    } else if (keysym == XK_3) {
+                        current_click_mode = MIDDLE_CLICK;
+                        continue;
+                    } else if (keysym == XK_4) {
+                        current_click_mode = DOUBLE_CLICK;
+                        continue;
+                    }
+                }
+
                 if (keysym == XK_Escape) {
                     hide_overlay_without_click();
                     continue;
