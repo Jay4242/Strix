@@ -17,6 +17,12 @@ This program creates a transparent overlay grid on your X11 desktop, which can b
 - **Alternatively, after selecting a main cell (typing 2 characters), you can press Enter (or Return) to immediately click the center of that main cell and hide the overlay, without selecting a subcell.**
 - The grid is redrawn whenever the overlay window receives an expose event (e.g., when uncovered) or when a cell/subcell is highlighted.
 - Press **Escape** to cancel and hide the overlay without clicking.
+- **While the overlay is visible, you can change the click mode by holding Ctrl and pressing 1, 2, 3, or 4:**
+  - **Ctrl+1:** Left click (default)
+  - **Ctrl+2:** Right click
+  - **Ctrl+3:** Middle click
+  - **Ctrl+4:** Double left click
+- The selected click mode will be used for the next pointer action triggered by cell/subcell selection or Enter.
 
 ## Usage
 
@@ -50,6 +56,11 @@ This program creates a transparent overlay grid on your X11 desktop, which can b
    - Type **two more characters** (e.g., `a1`) to select a subcell within that main cell. The pointer will move and click in the center of the subcell, and the overlay will automatically hide.
    - **Alternatively, after typing two characters for the main cell, press Enter (or Return) to immediately click the center of that main cell and hide the overlay, skipping subcell selection.**
    - Press **Escape** to cancel and hide the overlay without clicking.
+   - **Change the click mode at any time while the overlay is visible by holding Ctrl and pressing:**
+     - **1 for left click**
+     - **2 for right click**
+     - **3 for middle click**
+     - **4 for double left click**
 
 6. To stop the program, terminate it from the terminal (e.g., with `Ctrl+C`).
 
@@ -67,6 +78,6 @@ This program creates a transparent overlay grid on your X11 desktop, which can b
 - Cell IDs are generated sequentially, starting with `a0` up to `z9`, then `aa`, `ab`, etc.
 - Subcells within a main cell are labeled from `a0` (top-left) to `c2` (bottom-right).
 - Highlighted cells and subcells are filled in white with black or orange text for visibility.
-- When a cell or subcell is highlighted, the mouse pointer is moved to its center automatically and a click is triggered.
+- When a cell or subcell is highlighted, the mouse pointer is moved to its center automatically and a click is triggered, using the currently selected click mode.
 - After a subcell click, or after pressing Enter on a main cell, the overlay automatically hides and resets.
 - The overlay grabs focus when shown, and releases it when hidden.
