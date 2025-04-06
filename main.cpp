@@ -9,6 +9,7 @@
 #include <cctype>
 #include <cstring>
 #include <cassert>
+#include <array>
 
 Display *display;
 Window root;
@@ -114,11 +115,13 @@ void move_pointer_to_subcell(const std::string& main_cell_id, const std::string&
     int sub_size = grid_size / 3;
     int sub_x = -1, sub_y = -1;
 
+    std::array<char, 9> subcell_keys = {'g', 'c', 'r', 'h', 't', 'n', 'm', 'w', 'v'};
+
     for (int sy = 0; sy < 3; ++sy) {
         for (int sx = 0; sx < 3; ++sx) {
+            int index = sy * 3 + sx;
             std::string scid;
-            scid += 'a' + sx;
-            scid += '0' + sy;
+            scid += subcell_keys[index];
 
             if (scid == subcell_id) {
                 sub_x = cell_x + sx * sub_size + sub_size / 2;
@@ -193,14 +196,15 @@ void draw_grid(Window win, int width, int height) {
 
             if (show_subgrid) {
                 int sub_size = grid_size / 3;
+                std::array<char, 9> subcell_keys = {'g', 'c', 'r', 'h', 't', 'n', 'm', 'w', 'v'};
                 for (int sy = 0; sy < 3; ++sy) {
                     for (int sx = 0; sx < 3; ++sx) {
                         int sub_x = x + sx * sub_size;
                         int sub_y = y + sy * sub_size;
 
+                        int index = sy * 3 + sx;
                         std::string scid;
-                        scid += 'a' + sx;
-                        scid += '0' + sy;
+                        scid += subcell_keys[index];
 
                         bool sub_highlight = (highlighted_subcell != "" && scid == highlighted_subcell);
 
@@ -217,7 +221,7 @@ void draw_grid(Window win, int width, int height) {
                         int scy = sub_y + sub_size / 2;
 
                         if (font) {
-                            XTextExtents(font, scid.c_str(), 2, &direction, &ascent, &descent, &overall);
+                            XTextExtents(font, scid.c_str(), 1, &direction, &ascent, &descent, &overall);
                             scx -= overall.width / 2;
                             scy += (ascent - descent) / 2;
                         }
@@ -227,7 +231,7 @@ void draw_grid(Window win, int width, int height) {
                         } else {
                             XSetForeground(display, gc, orange_pixel);
                         }
-                        XDrawString(display, win, gc, scx, scy, scid.c_str(), 2);
+                        XDrawString(display, win, gc, scx, scy, scid.c_str(), 1);
                     }
                 }
             }
@@ -440,8 +444,8 @@ int main() {
                 if (len == 1 && std::isalnum(buf[0])) {
                     char c = std::tolower(buf[0]);
                     typed_chars += c;
-                    if (typed_chars.length() > 4) {
-                        typed_chars = typed_chars.substr(typed_chars.length() - 4);
+                    if (typed_chars.length() > 3) {
+                        typed_chars = typed_chars.substr(typed_chars.length() - 3);
                     }
 
                     int screen = DefaultScreen(display);
@@ -453,8 +457,15 @@ int main() {
                         highlighted_subcell = "";
                         draw_grid(overlay, width, height);
                         move_pointer_to_cell(highlighted_cell, width, height);
-                    } else if (typed_chars.length() == 4) {
-                        std::string subid = typed_chars.substr(2,2);
+                    } else if (typed_chars.length() == 3) {
+                        std::array<char, 9> subcell_keys = {'g', 'c', 'r', 'h', 't', 'n', 'm', 'w', 'v'};
+                        std::string subid;
+                        for (char key : subcell_keys) {
+                            if (typed_chars[2] == key) {
+                                subid += key;
+                                break;
+                            }
+                        }
                         highlighted_subcell = subid;
                         draw_grid(overlay, width, height);
                         move_pointer_to_subcell(highlighted_cell, highlighted_subcell, width, height);
