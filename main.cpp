@@ -460,16 +460,23 @@ int main() {
                     } else if (typed_chars.length() == 3) {
                         std::array<char, 9> subcell_keys = {'g', 'c', 'r', 'h', 't', 'n', 'm', 'w', 'v'};
                         std::string subid;
+                        bool valid_subcell = false;
                         for (char key : subcell_keys) {
                             if (typed_chars[2] == key) {
                                 subid += key;
+                                valid_subcell = true;
                                 break;
                             }
                         }
-                        highlighted_subcell = subid;
-                        draw_grid(overlay, width, height);
-                        move_pointer_to_subcell(highlighted_cell, highlighted_subcell, width, height);
-                        destroy_overlay(true);
+
+                        if (valid_subcell) {
+                            highlighted_subcell = subid;
+                            draw_grid(overlay, width, height);
+                            move_pointer_to_subcell(highlighted_cell, highlighted_subcell, width, height);
+                            destroy_overlay(true);
+                        } else {
+                            typed_chars = typed_chars.substr(0, 2); // remove invalid char
+                        }
                     }
                 }
             }
