@@ -127,25 +127,24 @@ void create_overlay() {
     XChangeProperty(display, overlay, property, cardinal_atom, 32, PropModeReplace,
                     (unsigned char *)&opacity, 1);
 
-    // Make window input transparent (click-through)
-    XShapeCombineRectangles(display, overlay, ShapeInput, 0, 0, nullptr, 0, ShapeSet, 0);
+    // Do NOT make input transparent, so we can receive key events
+    // XShapeCombineRectangles(display, overlay, ShapeInput, 0, 0, nullptr, 0, ShapeSet, 0);
 
-    XSelectInput(display, overlay, ExposureMask);
+    XSelectInput(display, overlay, ExposureMask | KeyPressMask);
     XMapRaised(display, overlay);
     XFlush(display);
 
-    // Grab keyboard to receive all key events
-    int grab_res = XGrabKeyboard(display, root, True, GrabModeAsync, GrabModeAsync, CurrentTime);
-    if (grab_res != GrabSuccess) {
-        std::cerr << "Warning: failed to grab keyboard\n";
-    }
+    // Set input focus to overlay so it receives key events
+    XSetInputFocus(display, overlay, RevertToParent, CurrentTime);
 
     draw_grid(overlay, width, height);
 }
 
 void destroy_overlay() {
     if (overlay) {
-        XUngrabKeyboard(display, CurrentTime);
+        // Clear focus back to root
+        XSetInputFocus(display, root, RevertToParent, CurrentTime);
+
         XDestroyWindow(display, overlay);
         overlay = 0;
         highlighted_cell = "";
@@ -202,8 +201,8 @@ int main() {
                 } else {
                     destroy_overlay();
                 }
-            } else if (overlayVisible) {
-                // accumulate typed characters when overlay is visible
+            } else if (overlayVisible && ev.xkey.window == overlay) {
+                // accumulate typed characters when overlay is visible and has focus
                 char buf[32];
                 int len = XLookupString(&xkey, buf, sizeof(buf), &keysym, nullptr);
                 if (len == 1 && std::isalnum(buf[0])) {
