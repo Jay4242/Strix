@@ -1,5 +1,13 @@
 # X11 Grid Overlay Tool
 
+
+
+https://github.com/user-attachments/assets/38399725-2170-4d29-b415-e2a6492688fa
+
+
+
+
+
 This program creates a transparent overlay grid on your X11 desktop, which can be toggled on and off with a keyboard shortcut. It allows you to highlight individual grid cells by typing their IDs, and automatically moves the mouse pointer to the center of the highlighted cell or subcell, triggering a click.
 
 ## How it works
