@@ -1,4 +1,4 @@
-# X11 Grid Overlay Tool
+# Strix
 
 
 
@@ -47,13 +47,13 @@ This program creates a transparent overlay grid on your X11 desktop, which can b
 2. **Compile the program:**
 
    ```
-   g++ main.cpp -o grid_overlay -lX11 -lXext -lXtst
+   g++ main.cpp -o strix -lX11 -lXext -lXtst
    ```
 
 3. **Run the program:**
 
    ```
-   ./grid_overlay
+   ./strix
    ```
 
 4. Press **Ctrl+h+t simultaneously** (hold Ctrl and press both `h` and `t` at the same time) to toggle the grid overlay on or off.
