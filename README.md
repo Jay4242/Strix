@@ -6,7 +6,7 @@ This program creates a transparent overlay grid on your X11 desktop, which can b
 
 - The program connects to the X11 display and grabs the `Ctrl + h` and `Ctrl + t` key combinations (including variations with NumLock and CapsLock).
 - When you **hold Ctrl and press both `h` and `t` simultaneously**, it toggles the visibility of a fullscreen transparent overlay window.
-- The overlay window is semi-transparent and click-through (input transparent), so it does not interfere with your normal desktop usage.
+- The overlay window is semi-transparent and input-transparent, so it does not interfere with your normal desktop usage.
 - The overlay displays a grid with lines every 50 pixels, drawn in white.
 - Each grid cell is labeled with a unique 2-character ID (e.g., `a0`, `a1`, ..., `z9`, `aa`, `ab`, ...).
 - When the overlay is visible, you can type **two alphanumeric characters** to highlight the corresponding main cell.
@@ -14,8 +14,9 @@ This program creates a transparent overlay grid on your X11 desktop, which can b
 - You can then type **two more characters** (total of 4 typed characters) to select a subcell within the highlighted main cell.
 - The mouse pointer will move to the center of the highlighted cell or subcell and automatically click.
 - After a subcell click, the overlay automatically hides.
-- **Alternatively, after selecting a main cell (typing 2 characters), you can press Enter to immediately click the center of that main cell and hide the overlay, without selecting a subcell.**
+- **Alternatively, after selecting a main cell (typing 2 characters), you can press Enter (or Return) to immediately click the center of that main cell and hide the overlay, without selecting a subcell.**
 - The grid is redrawn whenever the overlay window receives an expose event (e.g., when uncovered) or when a cell/subcell is highlighted.
+- Press **Escape** to cancel and hide the overlay without clicking.
 
 ## Usage
 
@@ -65,7 +66,7 @@ This program creates a transparent overlay grid on your X11 desktop, which can b
 - The program currently uses a fixed grid size of 50 pixels.
 - Cell IDs are generated sequentially, starting with `a0` up to `z9`, then `aa`, `ab`, etc.
 - Subcells within a main cell are labeled from `a0` (top-left) to `c2` (bottom-right).
-- Highlighted cells and subcells are filled in white with black text for visibility.
+- Highlighted cells and subcells are filled in white with black or orange text for visibility.
 - When a cell or subcell is highlighted, the mouse pointer is moved to its center automatically and a click is triggered.
 - After a subcell click, or after pressing Enter on a main cell, the overlay automatically hides and resets.
-
+- The overlay grabs focus when shown, and releases it when hidden.
