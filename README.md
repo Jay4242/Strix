@@ -1,6 +1,6 @@
 # X11 Grid Overlay Tool
 
-This program creates a transparent overlay grid on your X11 desktop, which can be toggled on and off with a keyboard shortcut. It also allows you to highlight individual grid cells by typing their IDs, and automatically moves the mouse pointer to the center of the highlighted cell.
+This program creates a transparent overlay grid on your X11 desktop, which can be toggled on and off with a keyboard shortcut. It allows you to highlight individual grid cells by typing their IDs, and automatically moves the mouse pointer to the center of the highlighted cell or subcell, triggering a click.
 
 ## How it works
 
@@ -9,9 +9,12 @@ This program creates a transparent overlay grid on your X11 desktop, which can b
 - The overlay window is semi-transparent and click-through (input transparent), so it does not interfere with your normal desktop usage.
 - The overlay displays a grid with lines every 50 pixels, drawn in white.
 - Each grid cell is labeled with a unique 2-character ID (e.g., `a0`, `a1`, ..., `z9`, `aa`, `ab`, ...).
-- When the overlay is visible, you can type two alphanumeric characters to highlight the corresponding cell.
-- When a cell is highlighted, the mouse pointer is automatically moved to the center of that cell and a click is triggered.
-- The grid is redrawn whenever the overlay window receives an expose event (e.g., when uncovered) or when a cell is highlighted.
+- When the overlay is visible, you can type **two alphanumeric characters** to highlight the corresponding main cell.
+- When a main cell is highlighted, a 3x3 subgrid appears inside it, with subcells labeled `a0`, `b0`, `c0`, `a1`, ..., `c2`.
+- You can then type **two more characters** (total of 4 typed characters) to select a subcell within the highlighted main cell.
+- The mouse pointer will move to the center of the highlighted cell or subcell and automatically click.
+- After a subcell click, the overlay automatically hides.
+- The grid is redrawn whenever the overlay window receives an expose event (e.g., when uncovered) or when a cell/subcell is highlighted.
 
 ## Usage
 
@@ -39,7 +42,10 @@ This program creates a transparent overlay grid on your X11 desktop, which can b
 
 4. Press `Ctrl + Shift + F9` to toggle the grid overlay on or off.
 
-5. When the overlay is visible, type two alphanumeric characters to highlight a specific cell by its ID. The mouse pointer will move to the center of that cell and click automatically.
+5. When the overlay is visible:
+   - Type **two alphanumeric characters** (e.g., `b3`) to select a main grid cell. The pointer will move and click in the center of that cell.
+   - After selecting a main cell, a 3x3 subgrid appears inside it.
+   - Type **two more characters** (e.g., `a1`) to select a subcell within that main cell. The pointer will move and click in the center of the subcell, and the overlay will automatically hide.
 
 6. To stop the program, terminate it from the terminal (e.g., with `Ctrl+C`).
 
@@ -55,5 +61,8 @@ This program creates a transparent overlay grid on your X11 desktop, which can b
 - The opacity is set via the `_NET_WM_WINDOW_OPACITY` property to make the overlay semi-transparent.
 - The program currently uses a fixed grid size of 50 pixels.
 - Cell IDs are generated sequentially, starting with `a0` up to `z9`, then `aa`, `ab`, etc.
-- Highlighted cells are filled in white with black text for visibility.
-- When a cell is highlighted, the mouse pointer is moved to its center automatically and a click is triggered.
+- Subcells within a main cell are labeled from `a0` (top-left) to `c2` (bottom-right).
+- Highlighted cells and subcells are filled in white with black text for visibility.
+- When a cell or subcell is highlighted, the mouse pointer is moved to its center automatically and a click is triggered.
+- After a subcell click, the overlay automatically hides and resets.
+
