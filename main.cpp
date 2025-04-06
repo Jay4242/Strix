@@ -18,6 +18,11 @@ std::string typed_chars = "";
 std::string highlighted_cell = "";
 std::string highlighted_subcell = "";
 
+bool toggle_in_progress = false;  // prevent repeated toggling while keys held
+
+KeyCode keycode_h;
+KeyCode keycode_t;
+
 void click_pointer();
 
 void destroy_overlay();
@@ -301,10 +306,13 @@ int main() {
 
     root = DefaultRootWindow(display);
 
-    int modifiers_mask = ControlMask | ShiftMask;
-    KeyCode keycode = XKeysymToKeycode(display, XK_F9);
+    int ctrl_mask = ControlMask;
 
-    grab_key_with_modifiers(display, root, keycode, modifiers_mask);
+    keycode_h = XKeysymToKeycode(display, XK_h);
+    keycode_t = XKeysymToKeycode(display, XK_t);
+
+    grab_key_with_modifiers(display, root, keycode_h, ctrl_mask);
+    grab_key_with_modifiers(display, root, keycode_t, ctrl_mask);
 
     XSelectInput(display, root, KeyPressMask);
 
@@ -316,14 +324,28 @@ int main() {
             XKeyEvent xkey = ev.xkey;
             KeySym keysym = XLookupKeysym(&xkey, 0);
 
-            if ((xkey.state & modifiers_mask) == modifiers_mask && xkey.keycode == keycode) {
-                overlayVisible = !overlayVisible;
-                if (overlayVisible) {
-                    create_overlay();
-                } else {
-                    destroy_overlay();
+            char keys_return[32];
+            XQueryKeymap(display, keys_return);
+
+            bool ctrl_held = (xkey.state & ctrl_mask) == ctrl_mask;
+            bool h_down = (keys_return[keycode_h / 8] & (1 << (keycode_h % 8))) != 0;
+            bool t_down = (keys_return[keycode_t / 8] & (1 << (keycode_t % 8))) != 0;
+
+            if (ctrl_held && h_down && t_down) {
+                if (!toggle_in_progress) {
+                    overlayVisible = !overlayVisible;
+                    if (overlayVisible) {
+                        create_overlay();
+                    } else {
+                        destroy_overlay();
+                    }
+                    toggle_in_progress = true;
                 }
-            } else if (overlayVisible && ev.xkey.window == overlay) {
+            } else {
+                toggle_in_progress = false;
+            }
+
+            if (overlayVisible && ev.xkey.window == overlay) {
                 char buf[32];
                 int len = XLookupString(&xkey, buf, sizeof(buf), &keysym, nullptr);
                 if (len == 1 && std::isalnum(buf[0])) {
