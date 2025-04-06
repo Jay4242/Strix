@@ -27,6 +27,20 @@ void click_pointer();
 
 void destroy_overlay();
 
+void hide_overlay_without_click() {
+    if (overlay) {
+        XSetInputFocus(display, root, RevertToParent, CurrentTime);
+
+        XDestroyWindow(display, overlay);
+        overlay = 0;
+        highlighted_cell = "";
+        highlighted_subcell = "";
+        typed_chars = "";
+
+        overlayVisible = false;
+    }
+}
+
 void move_pointer_to_cell(const std::string& cell_id, int width, int height) {
     int grid_size = 50;
     int id_counter = 0;
@@ -346,6 +360,24 @@ int main() {
             }
 
             if (overlayVisible && ev.xkey.window == overlay) {
+                if (keysym == XK_Escape) {
+                    hide_overlay_without_click();
+                    continue;
+                }
+
+                // New: handle Enter/Return key
+                if ((keysym == XK_Return || keysym == XK_KP_Enter) && typed_chars.length() >= 2) {
+                    int screen = DefaultScreen(display);
+                    int width = DisplayWidth(display, screen);
+                    int height = DisplayHeight(display, screen);
+
+                    highlighted_subcell = "";  // clear subcell highlight
+                    draw_grid(overlay, width, height);
+                    move_pointer_to_cell(highlighted_cell, width, height);
+                    destroy_overlay();
+                    continue;
+                }
+
                 char buf[32];
                 int len = XLookupString(&xkey, buf, sizeof(buf), &keysym, nullptr);
                 if (len == 1 && std::isalnum(buf[0])) {
