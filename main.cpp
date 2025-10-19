@@ -10,17 +10,28 @@
 #include <cstring>
 #include <cassert>
 #include <array>
+#include <cstdlib>
+#include <chrono>
+#include <csignal>
+
+static void fatal(const std::string& msg) {
+    std::cerr << "Fatal error: " << msg << std::endl;
+    std::exit(1);
+}
 
 Display *display;
 Window root;
 Window overlay = 0;
 bool overlayVisible = false;
+std::chrono::steady_clock::time_point overlay_start_time;
 
 std::string typed_chars = "";
 std::string highlighted_cell = "";
 std::string highlighted_subcell = "";
 
 bool toggle_in_progress = false;  // prevent repeated toggling while keys held
+int overlay_timeout_seconds = 30; // timeout in seconds
+int overlay_timeout_ms = overlay_timeout_seconds * 1000; // derived milliseconds
 
 KeyCode keycode_h;
 KeyCode keycode_t;
@@ -31,6 +42,13 @@ unsigned long dark_pixel;         // pixel value for dark text
 
 enum ClickMode { LEFT_CLICK, RIGHT_CLICK, MIDDLE_CLICK, DOUBLE_CLICK };
 ClickMode current_click_mode = LEFT_CLICK;
+
+volatile std::sig_atomic_t keepRunning = 1;
+
+void signal_handler(int signum) {
+    (void)signum; // unused
+    keepRunning = 0;
+}
 
 void click_pointer(ClickMode mode);
 
@@ -78,7 +96,9 @@ void move_pointer_to_cell(const std::string& cell_id, int width, int height) {
 
     if (found_x != -1 && found_y != -1) {
         int status = XWarpPointer(display, None, root, 0, 0, 0, 0, found_x, found_y);
-        (void)status; // ignore return value, no error indication
+        if (status == BadValue) {
+            std::cerr << "XWarpPointer failed for cell " << cell_id << "\n";
+        }
         XFlush(display);
     }
 }
@@ -134,14 +154,18 @@ void move_pointer_to_subcell(const std::string& main_cell_id, const std::string&
 
     if (sub_x != -1 && sub_y != -1) {
         int status = XWarpPointer(display, None, root, 0, 0, 0, 0, sub_x, sub_y);
-        (void)status; // ignore return value
+        if (status == BadValue) {
+            std::cerr << "XWarpPointer failed for subcell " << subcell_id << "\n";
+        }
         XFlush(display);
     }
 }
 
 void draw_grid(Window win, int width, int height) {
     GC gc = XCreateGC(display, win, 0, nullptr);
-    assert(gc != nullptr);
+    if (!gc) {
+        fatal("Failed to create graphics context");
+    }
 
     XSetForeground(display, gc, WhitePixel(display, DefaultScreen(display)));
 
@@ -260,7 +284,9 @@ void create_overlay() {
                             DefaultVisual(display, screen),
                             CWOverrideRedirect | CWBackPixel | CWBorderPixel,
                             &attrs);
-    assert(overlay != 0);
+    if (!overlay) {
+        fatal("Failed to create overlay window");
+    }
 
     unsigned long opacity = 0x80000000;
     Atom property = XInternAtom(display, "_NET_WM_WINDOW_OPACITY", False);
@@ -289,10 +315,14 @@ void click_pointer(ClickMode mode) {
     }
 
     for (int i = 0; i < click_count; ++i) {
-        XTestFakeButtonEvent(display, button, True, CurrentTime);
+        if (!XTestFakeButtonEvent(display, button, True, CurrentTime)) {
+            std::cerr << "Failed to fake button press\n";
+        }
         XFlush(display);
         usleep(10000);
-        XTestFakeButtonEvent(display, button, False, CurrentTime);
+        if (!XTestFakeButtonEvent(display, button, False, CurrentTime)) {
+            std::cerr << "Failed to fake button release\n";
+        }
         XFlush(display);
         if (click_count == 2) usleep(100000);  // small delay between double clicks
     }
@@ -332,9 +362,12 @@ void grab_key_with_modifiers(Display *disp, Window win, int keycode, int base_mo
     }
 }
 
-int main() {
+int main(int argc, char* argv[]) {
     display = XOpenDisplay(nullptr);
-    assert(display != nullptr);
+    if (!display) {
+        std::cerr << "Unable to open X display\n";
+        return 1;
+    }
 
     root = DefaultRootWindow(display);
 
@@ -363,7 +396,7 @@ int main() {
         dark_pixel = dark_color.pixel;
     }
 
-    int ctrl_mask = ControlMask;
+    unsigned int ctrl_mask = ControlMask;
 
     keycode_h = XKeysymToKeycode(display, XK_h);
     keycode_t = XKeysymToKeycode(display, XK_t);
@@ -373,118 +406,145 @@ int main() {
 
     (void)XSelectInput(display, root, KeyPressMask);
 
-    while (true) {
-        XEvent ev;
-        XNextEvent(display, &ev);
+    // Parse command‑line arguments for overlay timeout (seconds)
+    for (int i = 1; i < argc; ++i) {
+        if (std::string(argv[i]) == "--timeout" && i + 1 < argc) {
+            overlay_timeout_seconds = std::stoi(argv[i + 1]);
+            overlay_timeout_ms = overlay_timeout_seconds * 1000;
+            ++i; // skip the value we just consumed
+        }
+    }
 
-        if (ev.type == KeyPress) {
-            XKeyEvent xkey = ev.xkey;
-            KeySym keysym = XLookupKeysym(&xkey, 0);
-
-            char keys_return[32];
-            XQueryKeymap(display, keys_return);
-
-            bool ctrl_held = (xkey.state & ctrl_mask) == ctrl_mask;
-            bool h_down = (keys_return[keycode_h / 8] & (1 << (keycode_h % 8))) != 0;
-            bool t_down = (keys_return[keycode_t / 8] & (1 << (keycode_t % 8))) != 0;
-
-            if (ctrl_held && h_down && t_down) {
-                if (!toggle_in_progress) {
-                    overlayVisible = !overlayVisible;
-                    if (overlayVisible) {
-                        create_overlay();
-                    } else {
-                        destroy_overlay();
-                    }
-                    toggle_in_progress = true;
-                }
-            } else {
-                toggle_in_progress = false;
+    std::signal(SIGINT, signal_handler);
+    while (keepRunning) {
+        // Check timeout before blocking for events
+        if (overlayVisible) {
+            auto now = std::chrono::steady_clock::now();
+            if (std::chrono::duration_cast<std::chrono::milliseconds>(now - overlay_start_time).count() > overlay_timeout_ms) {
+                hide_overlay_without_click();
+                // Continue to next iteration to avoid processing stale events
+                continue;
             }
+        }
 
-            if (overlayVisible && ev.xkey.window == overlay) {
-                // Change click mode with Ctrl+number
-                if (ctrl_held) {
-                    if (keysym == XK_1) {
-                        current_click_mode = LEFT_CLICK;
-                        continue;
-                    } else if (keysym == XK_2) {
-                        current_click_mode = RIGHT_CLICK;
-                        continue;
-                    } else if (keysym == XK_3) {
-                        current_click_mode = MIDDLE_CLICK;
-                        continue;
-                    } else if (keysym == XK_4) {
-                        current_click_mode = DOUBLE_CLICK;
-                        continue;
+        // Process pending events if any; otherwise wait briefly
+        if (XPending(display)) {
+            XEvent ev;
+            XNextEvent(display, &ev);
+
+            if (ev.type == KeyPress) {
+                XKeyEvent xkey = ev.xkey;
+                KeySym keysym = XLookupKeysym(&xkey, 0);
+
+                char keys_return[32];
+                XQueryKeymap(display, keys_return);
+
+                bool ctrl_held = (xkey.state & ctrl_mask) == ctrl_mask;
+                bool h_down = (keys_return[keycode_h / 8] & (1 << (keycode_h % 8))) != 0;
+                bool t_down = (keys_return[keycode_t / 8] & (1 << (keycode_t % 8))) != 0;
+
+                if (ctrl_held && h_down && t_down) {
+                    if (!toggle_in_progress) {
+                        overlayVisible = !overlayVisible;
+                        if (overlayVisible) {
+                            create_overlay();
+                            overlay_start_time = std::chrono::steady_clock::now();
+                        } else {
+                            destroy_overlay();
+                        }
+                        toggle_in_progress = true;
                     }
+                } else {
+                    toggle_in_progress = false;
                 }
 
-                if (keysym == XK_Escape) {
-                    hide_overlay_without_click();
-                    continue;
-                }
-
-                if ((keysym == XK_Return || keysym == XK_KP_Enter)) {
-                    int screen = DefaultScreen(display);
-                    int width = DisplayWidth(display, screen);
-                    int height = DisplayHeight(display, screen);
-
-                    if (typed_chars.length() >= 2) {
-                        highlighted_subcell = "";
-                        draw_grid(overlay, width, height);
-                        move_pointer_to_cell(highlighted_cell, width, height);
-                    }
-                    destroy_overlay(true);
-                    continue;
-                }
-
-                char buf[32];
-                int len = XLookupString(&xkey, buf, sizeof(buf), &keysym, nullptr);
-                if (len == 1 && std::isalnum(buf[0])) {
-                    char c = std::tolower(buf[0]);
-                    typed_chars += c;
-                    if (typed_chars.length() > 3) {
-                        typed_chars = typed_chars.substr(typed_chars.length() - 3);
+                if (overlayVisible && ev.xkey.window == overlay) {
+                    // Change click mode with Ctrl+number
+                    if (ctrl_held) {
+                        if (keysym == XK_1) {
+                            current_click_mode = LEFT_CLICK;
+                            continue;
+                        } else if (keysym == XK_2) {
+                            current_click_mode = RIGHT_CLICK;
+                            continue;
+                        } else if (keysym == XK_3) {
+                            current_click_mode = MIDDLE_CLICK;
+                            continue;
+                        } else if (keysym == XK_4) {
+                            current_click_mode = DOUBLE_CLICK;
+                            continue;
+                        }
                     }
 
-                    int screen = DefaultScreen(display);
-                    int width = DisplayWidth(display, screen);
-                    int height = DisplayHeight(display, screen);
+                    if (keysym == XK_Escape) {
+                        hide_overlay_without_click();
+                        continue;
+                    }
 
-                    if (typed_chars.length() == 2) {
-                        highlighted_cell = typed_chars;
-                        highlighted_subcell = "";
-                        draw_grid(overlay, width, height);
-                        move_pointer_to_cell(highlighted_cell, width, height);
-                    } else if (typed_chars.length() == 3) {
-                        std::array<char, 9> subcell_keys = {'g', 'c', 'r', 'h', 't', 'n', 'm', 'w', 'v'};
-                        std::string subid;
-                        bool valid_subcell = false;
-                        for (char key : subcell_keys) {
-                            if (typed_chars[2] == key) {
-                                subid += key;
-                                valid_subcell = true;
-                                break;
+                    if ((keysym == XK_Return || keysym == XK_KP_Enter)) {
+                        int screen = DefaultScreen(display);
+                        int width = DisplayWidth(display, screen);
+                        int height = DisplayHeight(display, screen);
+
+                        if (typed_chars.length() >= 2) {
+                            highlighted_subcell = "";
+                            draw_grid(overlay, width, height);
+                            move_pointer_to_cell(highlighted_cell, width, height);
+                        }
+                        destroy_overlay(true);
+                        continue;
+                    }
+
+                    char buf[32];
+                    int len = XLookupString(&xkey, buf, sizeof(buf), &keysym, nullptr);
+                    if (len == 1 && std::isalnum(buf[0])) {
+                        char c = std::tolower(buf[0]);
+                        typed_chars += c;
+                        if (typed_chars.length() > 3) {
+                            typed_chars = typed_chars.substr(typed_chars.length() - 3);
+                        }
+
+                        int screen = DefaultScreen(display);
+                        int width = DisplayWidth(display, screen);
+                        int height = DisplayHeight(display, screen);
+
+                        if (typed_chars.length() == 2) {
+                            highlighted_cell = typed_chars;
+                            highlighted_subcell = "";
+                            draw_grid(overlay, width, height);
+                            move_pointer_to_cell(highlighted_cell, width, height);
+                        } else if (typed_chars.length() == 3) {
+                            std::array<char, 9> subcell_keys = {'g', 'c', 'r', 'h', 't', 'n', 'm', 'w', 'v'};
+                            std::string subid;
+                            bool valid_subcell = false;
+                            for (char key : subcell_keys) {
+                                if (typed_chars[2] == key) {
+                                    subid += key;
+                                    valid_subcell = true;
+                                    break;
+                                }
+                            }
+
+                            if (valid_subcell) {
+                                highlighted_subcell = subid;
+                                draw_grid(overlay, width, height);
+                                move_pointer_to_subcell(highlighted_cell, highlighted_subcell, width, height);
+                                destroy_overlay(true);
+                            } else {
+                                typed_chars = typed_chars.substr(0, 2); // remove invalid char
                             }
                         }
-
-                        if (valid_subcell) {
-                            highlighted_subcell = subid;
-                            draw_grid(overlay, width, height);
-                            move_pointer_to_subcell(highlighted_cell, highlighted_subcell, width, height);
-                            destroy_overlay(true);
-                        } else {
-                            typed_chars = typed_chars.substr(0, 2); // remove invalid char
-                        }
                     }
                 }
+            } else if (ev.type == Expose && overlayVisible) {
+                int screen = DefaultScreen(display);
+                int width = DisplayWidth(display, screen);
+                int height = DisplayHeight(display, screen);
+                draw_grid(overlay, width, height);
             }
-        } else if (ev.type == Expose && overlayVisible) {
-            int screen = DefaultScreen(display);
-            int width = DisplayWidth(display, screen);
-            int height = DisplayHeight(display, screen);
-            draw_grid(overlay, width, height);
+        } else {
+            // No events pending; sleep briefly to avoid busy loop
+            usleep(10000);
         }
     }
 
