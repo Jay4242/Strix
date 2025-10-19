@@ -53,7 +53,7 @@ This program creates a transparent overlay grid on your X11 desktop, which can b
 3. **Run the program:**
 
    ```
-   ./strix
+   ./strix [--timeout SECONDS]   # optional timeout (default 30 seconds)
    ```
 
 4. Press **Ctrl+h+t simultaneously** (hold Ctrl and press both `h` and `t` at the same time) to toggle the grid overlay on or off.
